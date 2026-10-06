@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whisper Local · Ses → Metin</title>
+<style>
+:root{color-scheme:dark;--bg:#07070d;--panel:#0d0e1a;--panel2:#11132a;--fg:#e6f1ff;--muted:#7f8bb3;--cyan:#00f0ff;--magenta:#ff2bd6;--yellow:#fcee0a;--red:#ff4d6d;--border:#1f2347;--mono:ui-monospace,"Cascadia Code","SFMono-Regular",Consolas,monospace}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;color:var(--fg);font:400 15px/1.55 Inter,system-ui,sans-serif;background:
+ radial-gradient(900px 500px at 85% -10%,rgba(255,43,214,.16),transparent 60%),
+ radial-gradient(800px 500px at 0% 0%,rgba(0,240,255,.12),transparent 60%),
+ linear-gradient(rgba(0,240,255,.045) 1px,transparent 1px) 0 0/44px 44px,
+ linear-gradient(90deg,rgba(0,240,255,.045) 1px,transparent 1px) 0 0/44px 44px,var(--bg);overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);mix-blend-mode:multiply;z-index:10}
+main{max-width:1040px;margin:0 auto;padding:56px 24px 40px;position:relative}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--cyan);font:600 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase}
+.eyebrow::before{content:"";width:9px;height:9px;background:var(--cyan);box-shadow:0 0 12px var(--cyan);animation:blink 1.6s steps(2) infinite}
+h1{font:800 clamp(2.1rem,6vw,4rem)/1.02 var(--mono);letter-spacing:-.03em;margin:18px 0 12px;text-transform:uppercase;position:relative;display:block;text-shadow:0 0 22px rgba(0,240,255,.35)}
+h1 span{color:var(--magenta);text-shadow:0 0 22px rgba(255,43,214,.55)}
+.lead{color:var(--muted);margin:0;max-width:60ch}
+.layout{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;margin-top:40px}
+.card{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--border);padding:24px;clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,22px 100%,0 calc(100% - 22px));min-width:0}
+.card::before{content:"";position:absolute;left:0;top:0;width:100%;height:2px;background:linear-gradient(90deg,var(--cyan),var(--magenta),transparent 80%)}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;display:flex;justify-content:space-between}
+label{display:block;font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin-bottom:8px}
+.drop{display:block;position:relative;border:1px dashed rgba(0,240,255,.45);padding:30px 16px;text-align:center;cursor:pointer;background:rgba(0,240,255,.03);letter-spacing:0;text-transform:none;color:var(--fg);font:inherit;margin:0;transition:background .15s,border-color .15s,box-shadow .15s}
+.drop:hover,.drop:focus-within{border-color:var(--cyan);background:rgba(0,240,255,.07);box-shadow:0 0 0 1px rgba(0,240,255,.25),0 0 24px rgba(0,240,255,.15)}
+.drop.over{border-color:var(--magenta);border-style:solid;background:rgba(255,43,214,.10);box-shadow:0 0 0 1px rgba(255,43,214,.5),0 0 34px rgba(255,43,214,.35)}
+.drop.has-file{border-style:solid;border-color:var(--yellow)}
+.drop svg{width:34px;height:34px;stroke:var(--cyan);fill:none;stroke-width:1.6;margin-bottom:8px;filter:drop-shadow(0 0 6px rgba(0,240,255,.7));transition:transform .15s}
+.drop.over svg{stroke:var(--magenta);transform:translateY(-3px)}
+.drop strong{display:block;font:700 15px/1.3 var(--mono);word-break:break-all}
+.drop span{display:block;font:12px/1.4 var(--mono);color:var(--muted);margin-top:6px}
+input[type=file]{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+select{width:100%;height:42px;background:#080914;color:var(--fg);border:1px solid var(--border);padding:0 12px;font:13px var(--mono);border-radius:0}
+select:focus,button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+button{font:700 13px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;height:46px;border:0;cursor:pointer;width:100%;margin-top:20px;color:#05060c;background:linear-gradient(90deg,var(--cyan),#6df7ff);clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));transition:filter .15s,transform .1s}
+button:hover:not(:disabled){filter:brightness(1.12)}button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.progress{margin-top:20px}.progress[hidden]{display:none}
+.p-head{display:flex;justify-content:space-between;font:600 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+#p-stage{color:var(--cyan)}#p-pct{color:var(--yellow)}
+.bar{height:12px;background:#080914;border:1px solid var(--border);overflow:hidden;position:relative}
+.bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(115deg,var(--cyan) 0 10px,#00b8c4 10px 20px);box-shadow:0 0 16px var(--cyan);transition:width .4s ease;background-size:28px 100%;animation:run 1s linear infinite}
+.bar.indet i{width:35%;background:linear-gradient(90deg,transparent,var(--magenta),transparent);box-shadow:0 0 16px var(--magenta);animation:slide 1.2s ease-in-out infinite}
+.bar.err i{background:var(--red);box-shadow:0 0 16px var(--red);width:100%;animation:none}
+.p-meta{font:12px/1.4 var(--mono);color:var(--muted);margin-top:8px;min-height:18px}
+.status{font:12px/1.5 var(--mono);color:var(--muted);margin-top:12px;min-height:20px;word-break:break-word}
+.status.err{color:var(--red)}
+.result{display:flex;flex-direction:column;min-height:340px}
+.result-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.result-head h2{font:700 13px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;margin:0;color:var(--magenta)}
+.copy{width:auto;margin:0;height:32px;padding:0 14px;background:transparent;color:var(--cyan);border:1px solid var(--cyan);clip-path:none;font-size:11px}
+.copy:disabled{display:none}
+textarea{flex:1;resize:vertical;min-height:270px;width:100%;border:1px solid var(--border);padding:14px;background:#06070f;color:#c9f9ff;font:13px/1.65 var(--mono);caret-color:var(--cyan)}
+textarea::placeholder{color:#5a6699}
+small{display:block;color:var(--muted);margin-top:22px;font:11px/1.4 var(--mono);letter-spacing:.08em}
+@keyframes blink{50%{opacity:.25}}
+@keyframes run{to{background-position:28px 0}}
+@keyframes slide{0%{margin-left:-35%}100%{margin-left:100%}}
+@media(max-width:760px){main{padding:36px 16px 28px}.layout{grid-template-columns:1fr;margin-top:28px}.row{grid-template-columns:1fr}.card{padding:20px 16px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.bar.indet i{width:100%;opacity:.4}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">Whisper Local // v1.1</div>
+<h1>Ses <span>→</span> Metin</h1>
+<p class="lead">Dosyan bu bilgisayardan çıkmaz. Dönüştürme yerel Whisper modeliyle yapılır.</p>
+<div class="layout">
+<section class="card"><div class="tag"><span>// giriş</span><span>127.0.0.1</span></div>
+<form id="form">
+<label id="drop" for="audio" class="drop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg><strong id="file-name">Ses dosyasını buraya bırak</strong><span id="drop-hint">veya tıklayıp seç · OGG OPUS M4A MP3 WAV FLAC · 200 MB</span><input id="audio" name="audio" type="file" accept=".ogg,.opus,.m4a,.mp3,.wav,.flac,.webm,.mp4" required></label>
+<div class="row"><div><label for="model">Model</label><select id="model" name="model"><option value="small" selected>Small · dengeli</option><option value="base">Base · hızlı</option><option value="medium">Medium · daha doğru</option><option value="tiny">Tiny · en hızlı</option></select></div><div><label for="language">Dil</label><select id="language" name="language"><option value="tr" selected>Türkçe</option><option value="auto">Otomatik</option><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option></select></div></div>
+<button id="submit" type="submit">Metne dönüştür</button>
+<div id="progress" class="progress" hidden><div class="p-head"><span id="p-stage">Hazırlanıyor</span><span id="p-pct"></span></div><div id="bar" class="bar" role="progressbar" aria-label="Dönüştürme ilerlemesi" aria-valuemin="0" aria-valuemax="100"><i id="fill"></i></div><div id="p-meta" class="p-meta"></div></div>
+<div id="status" class="status" role="status"></div>
+</form>
+<small>API anahtarı gerekmez · veri dışarı gitmez</small></section>
+<section class="card result"><div class="result-head"><h2>// Transkripsiyon</h2><button id="copy" class="copy" type="button" disabled>Kopyala</button></div><textarea id="output" readonly placeholder="Sonuç burada akacak…"></textarea></section>
+</div></main><script>
+const $=s=>document.querySelector(s),form=$('#form'),audio=$('#audio'),nameEl=$('#file-name'),statusEl=$('#status'),output=$('#output'),submit=$('#submit'),copy=$('#copy'),prog=$('#progress'),bar=$('#bar'),fill=$('#fill'),pStage=$('#p-stage'),pPct=$('#p-pct'),pMeta=$('#p-meta'),drop=$('#drop'),hint=$('#drop-hint');
+const LABELS={upload:'Yükleniyor',preparing:'Ses hazırlanıyor',loading:'Model yükleniyor',transcribing:'Çözümleniyor',done:'Tamamlandı',error:'Hata'};
+const EXT=['.ogg','.opus','.m4a','.mp3','.wav','.mp4','.webm','.flac'];
+const fmt=t=>{t=Math.max(0,Math.round(t));const m=Math.floor(t/60),s=t%60;return m+':'+String(s).padStart(2,'0')};
+function setBar(stage,percent,meta){prog.hidden=false;pStage.textContent=LABELS[stage]||stage;bar.classList.toggle('indet',percent==null&&stage!=='error');bar.classList.toggle('err',stage==='error');if(percent==null){bar.removeAttribute('aria-valuenow');fill.style.width='';pPct.textContent=''}else{bar.setAttribute('aria-valuenow',Math.round(percent));fill.style.width=percent+'%';pPct.textContent=Math.round(percent)+'%'}bar.setAttribute('aria-valuetext',LABELS[stage]+(percent==null?'':' %'+Math.round(percent)));pMeta.textContent=meta||''}
+function finish(){submit.disabled=false;submit.textContent='Metne dönüştür'}
+function fail(msg){setBar('error',100,'');statusEl.textContent='Hata: '+msg;statusEl.classList.add('err');finish()}
+function showFile(){const f=audio.files[0];nameEl.textContent=f?f.name:'Ses dosyasını buraya bırak';hint.textContent=f?(f.size/1048576).toFixed(1)+' MB · hazır':'veya tıklayıp seç · OGG OPUS M4A MP3 WAV FLAC · 200 MB';drop.classList.toggle('has-file',!!f)}
+audio.addEventListener('change',showFile);
+['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();if(!submit.disabled)drop.classList.add('over')}));
+['dragleave','dragend'].forEach(n=>drop.addEventListener(n,()=>drop.classList.remove('over')));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');if(submit.disabled)return;const f=e.dataTransfer.files[0];if(!f)return;const ext=(f.name.match(/\.[^.]+$/)||[''])[0].toLowerCase();if(!EXT.includes(ext)){statusEl.textContent='Hata: Desteklenmeyen dosya türü ('+(ext||'uzantısız')+').';statusEl.classList.add('err');return}statusEl.textContent='';statusEl.classList.remove('err');const dt=new DataTransfer();dt.items.add(f);audio.files=dt.files;showFile()});
+window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
+function poll(id,misses){fetch('/progress/'+id).then(r=>r.json().then(d=>({ok:r.ok,d}))).then(({ok,d})=>{if(!ok)return fail(d.error||'İlerleme okunamadı.');if(d.text_so_far&&d.stage!=='done'){const atEnd=output.scrollTop+output.clientHeight>=output.scrollHeight-24;output.value=d.text_so_far;if(atEnd)output.scrollTop=output.scrollHeight}
+if(d.stage==='error')return fail(d.error||'İşlem başarısız.');
+if(d.stage==='done'){output.value=d.text;output.scrollTop=0;copy.disabled=false;setBar('done',100,'Süre '+fmt(d.elapsed));statusEl.textContent='Tamamlandı · '+d.filename;return finish()}
+setBar(d.stage,d.percent,'Geçen '+fmt(d.elapsed)+(d.eta!=null?' · Kalan ~'+fmt(d.eta):''));setTimeout(()=>poll(id,0),1000)}).catch(()=>{if(misses>=3)return fail('Sunucuya ulaşılamıyor.');setTimeout(()=>poll(id,misses+1),1500)})}
+form.addEventListener('submit',e=>{e.preventDefault();if(!audio.files[0])return;submit.disabled=true;submit.textContent='İşleniyor…';statusEl.textContent='';statusEl.classList.remove('err');output.value='';copy.disabled=true;setBar('upload',0,'');
+const xhr=new XMLHttpRequest();xhr.open('POST','/transcribe');
+xhr.upload.onprogress=ev=>{if(ev.lengthComputable)setBar('upload',ev.loaded/ev.total*100,(ev.loaded/1048576).toFixed(1)+' / '+(ev.total/1048576).toFixed(1)+' MB')};
+xhr.onerror=()=>fail('Sunucuya ulaşılamıyor.');
+xhr.onload=()=>{let d={};try{d=JSON.parse(xhr.responseText)}catch(_){}if(xhr.status!==202||!d.job_id)return fail(d.error||'İşlem başarısız.');setBar('preparing',null,'');poll(d.job_id,0)};
+xhr.send(new FormData(form))});
+copy.addEventListener('click',async()=>{await navigator.clipboard.writeText(output.value);copy.textContent='Kopyalandı';setTimeout(()=>copy.textContent='Kopyala',1200)});
+</script></body></html>
