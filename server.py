@@ -32,6 +32,22 @@ SEGMENT_RE = re.compile(
 
 JOBS: dict[str, dict] = {}
 LOCK = threading.Lock()
+_DEVICE: str | None = None
+
+
+def pick_device() -> str:
+    """'cuda' when torch sees a CUDA GPU, else 'cpu'. WHISPER_DEVICE=cpu forces CPU."""
+    global _DEVICE
+    if _DEVICE is None:
+        _DEVICE = "cpu"
+        if os.environ.get("WHISPER_DEVICE", "").lower() != "cpu":
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    _DEVICE = "cuda"
+            except Exception:
+                pass
+    return _DEVICE
 
 
 def _seconds(h: str | None, m: str, s: str) -> float:
@@ -77,38 +93,52 @@ def run_job(job_id: str, source: Path, temp_dir: Path, model: str, language: str
 
         output_dir = temp_dir / "out"
         output_dir.mkdir()
-        cmd = [str(WHISPER), str(source), "--model", model, "--task", "transcribe", "--output_format", "txt",
-               "--output_dir", str(output_dir), "--fp16", "False"]
-        if language != "auto":
-            cmd += ["--language", language]
+        devices = [pick_device()]
+        if devices[0] == "cuda":
+            devices.append("cpu")  # GPU hatasinda (ornegin bellek) CPU'ya dus
         env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                encoding="utf-8", errors="replace", cwd=str(ROOT), env=env)
-        timer = threading.Timer(TIMEOUT, proc.kill)
-        timer.start()
         tail: list[str] = []
         segments: list[str] = []
-        try:
-            for raw in proc.stdout:
-                line = raw.rstrip("\r\n")
-                match = SEGMENT_RE.match(line)
-                if not match:
-                    if line.strip():
-                        tail = (tail + [line])[-12:]
-                    continue
-                end = _seconds(match.group(4), match.group(5), match.group(6))
-                segments.append(match.group(7).strip())
-                with LOCK:
-                    if job["stage"] == "loading":
-                        job.update(stage="transcribing", first_segment=time.time())
-                    if duration:
-                        job["percent"] = round(min(end / duration * 100, 99.0), 1)
-                    job["text_so_far"] = "\n".join(segments)
-            proc.wait()
-        finally:
-            timer.cancel()
+        returncode = 1
+        for device in devices:
+            cmd = [str(WHISPER), str(source), "--model", model, "--task", "transcribe", "--output_format", "txt",
+                   "--output_dir", str(output_dir), "--device", device]
+            if device == "cpu":
+                cmd += ["--fp16", "False"]
+            if language != "auto":
+                cmd += ["--language", language]
+            with LOCK:
+                job.update(device=device, stage="loading", percent=None)
+                job.pop("first_segment", None)
+            tail, segments = [], []
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                    encoding="utf-8", errors="replace", cwd=str(ROOT), env=env)
+            timer = threading.Timer(TIMEOUT, proc.kill)
+            timer.start()
+            try:
+                for raw in proc.stdout:
+                    line = raw.rstrip("\r\n")
+                    match = SEGMENT_RE.match(line)
+                    if not match:
+                        if line.strip():
+                            tail = (tail + [line])[-12:]
+                        continue
+                    end = _seconds(match.group(4), match.group(5), match.group(6))
+                    segments.append(match.group(7).strip())
+                    with LOCK:
+                        if job["stage"] == "loading":
+                            job.update(stage="transcribing", first_segment=time.time())
+                        if duration:
+                            job["percent"] = round(min(end / duration * 100, 99.0), 1)
+                        job["text_so_far"] = "\n".join(segments)
+                proc.wait()
+            finally:
+                timer.cancel()
+            returncode = proc.returncode
+            if returncode == 0:
+                break
 
-        if proc.returncode != 0:
+        if returncode != 0:
             return fail(("\n".join(tail) or "Whisper işlemi başarısız.")[-1200:])
         transcript_file = output_dir / "input.txt"
         if not transcript_file.exists():
@@ -123,7 +153,7 @@ def run_job(job_id: str, source: Path, temp_dir: Path, model: str, language: str
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "WhisperLocal/1.1"
+    server_version = "WhisperLocal/1.2"
 
     def _send(self, status: int, payload: bytes, content_type: str) -> None:
         self.send_response(status)
@@ -165,6 +195,7 @@ class Handler(BaseHTTPRequestHandler):
                 "error": job.get("error"),
                 "filename": job["filename"],
                 "model": job["model"],
+                "device": job.get("device"),
             }
             if job["stage"] == "done":
                 payload["text"] = job["text"]

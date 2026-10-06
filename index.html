@@ -65,7 +65,7 @@ small{display:block;color:var(--muted);margin-top:22px;font:11px/1.4 var(--mono)
 </style>
 </head>
 <body><main>
-<div class="eyebrow">Whisper Local // v1.1</div>
+<div class="eyebrow">Whisper Local // v1.2</div>
 <h1>Ses <span>→</span> Metin</h1>
 <p class="lead">Dosyan bu bilgisayardan çıkmaz. Dönüştürme yerel Whisper modeliyle yapılır.</p>
 <div class="layout">
@@ -95,8 +95,8 @@ drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over'
 window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
 function poll(id,misses){fetch('/progress/'+id).then(r=>r.json().then(d=>({ok:r.ok,d}))).then(({ok,d})=>{if(!ok)return fail(d.error||'İlerleme okunamadı.');if(d.text_so_far&&d.stage!=='done'){const atEnd=output.scrollTop+output.clientHeight>=output.scrollHeight-24;output.value=d.text_so_far;if(atEnd)output.scrollTop=output.scrollHeight}
 if(d.stage==='error')return fail(d.error||'İşlem başarısız.');
-if(d.stage==='done'){output.value=d.text;output.scrollTop=0;copy.disabled=false;setBar('done',100,'Süre '+fmt(d.elapsed));statusEl.textContent='Tamamlandı · '+d.filename;return finish()}
-setBar(d.stage,d.percent,'Geçen '+fmt(d.elapsed)+(d.eta!=null?' · Kalan ~'+fmt(d.eta):''));setTimeout(()=>poll(id,0),1000)}).catch(()=>{if(misses>=3)return fail('Sunucuya ulaşılamıyor.');setTimeout(()=>poll(id,misses+1),1500)})}
+if(d.stage==='done'){output.value=d.text;output.scrollTop=0;copy.disabled=false;setBar('done',100,'Süre '+fmt(d.elapsed)+(d.device?' · '+(d.device==='cuda'?'GPU':'CPU'):''));statusEl.textContent='Tamamlandı · '+d.filename;return finish()}
+setBar(d.stage,d.percent,'Geçen '+fmt(d.elapsed)+(d.eta!=null?' · Kalan ~'+fmt(d.eta):'')+(d.device?' · '+(d.device==='cuda'?'GPU':'CPU'):''));setTimeout(()=>poll(id,0),1000)}).catch(()=>{if(misses>=3)return fail('Sunucuya ulaşılamıyor.');setTimeout(()=>poll(id,misses+1),1500)})}
 form.addEventListener('submit',e=>{e.preventDefault();if(!audio.files[0])return;submit.disabled=true;submit.textContent='İşleniyor…';statusEl.textContent='';statusEl.classList.remove('err');output.value='';copy.disabled=true;setBar('upload',0,'');
 const xhr=new XMLHttpRequest();xhr.open('POST','/transcribe');
 xhr.upload.onprogress=ev=>{if(ev.lengthComputable)setBar('upload',ev.loaded/ev.total*100,(ev.loaded/1048576).toFixed(1)+' / '+(ev.total/1048576).toFixed(1)+' MB')};
